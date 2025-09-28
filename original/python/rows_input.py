@@ -31,7 +31,7 @@ class TextLineInputter:
     def __init__(self, root):
         self.root = root
         self.root.title("文本行输入器")
-        self.root.geometry("500x450")
+        self.root.geometry("550x450")
         self.root.resizable(True, True)
         
         # 设置中文字体支持
@@ -98,10 +98,19 @@ class TextLineInputter:
         )
         self.paste_check.pack(side=tk.LEFT, padx=5)
         
+        # 更改热键按钮
+        self.change_hotkey_btn = ttk.Button(
+            options_frame2,
+            text="更改热键",
+            command=self.change_hotkey
+        )
+        self.change_hotkey_btn.pack(side=tk.LEFT, padx=5)
+        
         # 说明标签
+        self.instructions_var = tk.StringVar(value=f"请在下方输入多行文本，按下 {self.hotkey.upper()} 键将输入并删除第一行内容")
         instructions = ttk.Label(
             self.root, 
-            text=f"请在下方输入多行文本，按下 {self.hotkey.upper()} 键将输入并删除第一行内容",
+            textvariable=self.instructions_var,
             font=self.font,
             wraplength=480,
             justify="left"
@@ -229,6 +238,88 @@ class TextLineInputter:
         # 清理热键
         keyboard.unhook_all()
     
+    def change_hotkey(self):
+        """更改热键的处理函数"""
+        # 创建一个临时对话框
+        dialog = tk.Toplevel(self.root)
+        dialog.title("更改热键")
+        dialog.geometry("350x150")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)  # 设置为主窗口的子窗口
+        dialog.grab_set()  # 模态窗口
+        dialog.attributes('-topmost', True)
+        
+        # 居中显示
+        dialog.update_idletasks()
+        width = dialog.winfo_width()
+        height = dialog.winfo_height()
+        x = (self.root.winfo_width() // 2) - (width // 2) + self.root.winfo_x()
+        y = (self.root.winfo_height() // 2) - (height // 2) + self.root.winfo_y()
+        dialog.geometry('{}x{}+{}+{}'.format(width, height, x, y))
+        
+        # 提示标签
+        ttk.Label(
+            dialog, 
+            text="请按下您想要设置的新热键（单键）",
+            font=self.font
+        ).pack(pady=10, padx=10)
+        
+        # 当前热键标签
+        current_hotkey_var = tk.StringVar(value=f"当前热键: {self.hotkey.upper()}")
+        ttk.Label(
+            dialog, 
+            textvariable=current_hotkey_var,
+            font=self.font,
+            foreground="gray"
+        ).pack(pady=5)
+        
+        # 新热键变量
+        new_hotkey_var = tk.StringVar()
+        
+        def on_key_press(event):
+            """处理按键事件"""
+            # 只接受单个按键
+            if event.char or len(event.keysym) == 1:
+                new_hotkey = event.char.lower()
+            else:
+                new_hotkey = event.keysym.lower()
+            
+            if new_hotkey:
+                new_hotkey_var.set(new_hotkey)
+                # 更新对话框
+                current_hotkey_var.set(f"新热键: {new_hotkey.upper()}")
+                # 3秒后自动关闭
+                dialog.after(1000, lambda: update_hotkey(new_hotkey))
+        
+        def update_hotkey(new_hotkey):
+            """更新热键"""
+            try:
+                # 移除旧的热键监听
+                keyboard.unhook_all()
+                
+                # 更新热键
+                self.hotkey = new_hotkey
+                
+                # 重新注册热键
+                keyboard.add_hotkey(self.hotkey, self.on_hotkey_pressed)
+                
+                # 更新说明标签
+                self.instructions_var.set(f"请在下方输入多行文本，按下 {self.hotkey.upper()} 键将输入并删除第一行内容")
+                
+                # 显示成功消息
+                self.status_var.set(f"热键已更改为: {self.hotkey.upper()}")
+                
+                # 关闭对话框
+                dialog.destroy()
+            except Exception as e:
+                messagebox.showerror("错误", f"设置热键失败: {str(e)}")
+        
+        # 绑定按键事件
+        dialog.bind("<Key>", on_key_press)
+        
+        # 提示用户按任意键
+        dialog.focus_set()
+    
     def on_hotkey_pressed(self):
         """热键被按下时的处理函数"""
         # 使用after确保在主线程中更新UI
@@ -252,6 +343,29 @@ def main():
     
     # 创建并运行主窗口
     root = tk.Tk()
+    # 设置窗口图标（LOGO）
+    try:
+        import base64
+        from io import BytesIO
+        
+        # 请将下面的 base64 编码替换为实际的 ico 文件的 base64 编码
+        # 这里使用一个空的 base64 编码作为示例，实际使用时需要替换
+        logo_base64 = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACxklEQVR4ASyTz29VVRDHPzPnthu1z7Zqfa9A33tSscadMdjCArQ2SDSA1cSiboyyIGKtP/4Nha0boxj/koYqMUiffa1xISxdFAhL2ntmmHNh3p3cmTnznZn7nfPUrPbasucc6rVb+NnN9/Oe17bvRep6z/dzHTn7j7V2s1A31+xGEmUt9VnTWb5Kh+Pd55vRI3ydZvlWuqxVL0QOOBkzx0XIDoFHpRiAxC8iXM7/UUTMIsOxiCuphHAUTQmiiERjF0NFGmgkOj8EWES4Yre4bLe54rf53m9FCRBJJB0JgJKiSEojYI6iQhFNFatVv5hclG7oDKva50vpoQhPtl9lvDvP071jTPSPE9w0uerZGoOcSU4AulTNsOG4h2UkDKkSqkpSafJFhHhKTJvAL71pfjrU5ucDU1yd6fBbt8PVXodfu9P8ONNmZGQUMwt1JAoVUB2+ukt0iU7hlG+rRkdJ1Qjm2owpolThE1kgFLGYtrxTnOmjmLD11C5brV2GY7tshv3P+D3+HrvD9vhdBk/8z7+tewwn7rPTutPklQJeCrjlpoam6EyFZSHGKpSQgljziHkiB+vJQGIytYpHYpEblyM+gPbNLab+2qIz2A57h+nBDu0bQzo3BhwIe+rPTZ6/OWRqc5v2YPgY76jqaEwQPJw8gr/xEvbWHLb0Cr40hy/OYScPYydejLM4Xwx9czbOXm4KiCS0kOPhensca7Xw6Q7+7CT54DQ2OY5PTuGdg9StMey5Q1inhz0zgREojQkKr0XXT62yfnaVjcULbLx9kesnPmf99BdcO3OJa0ufcv397/jjnQv8fuozNk5fomBiVWi2HP2JgFLFrkU04sGKOylIlDJkXN1y83KsOp5mzYJQRJOm+GfVLHyyzNEPzzB//hzHzi/z+kfLzK+c4+jKWRbCn195j4XQ4x8v89oH7/Jg70FsKvMQAAD//3zP/YoAAAAGSURBVAMAn39KP7AcP0MAAAAASUVORK5CYII="
+        
+        if logo_base64:
+            # 将 base64 数据解码为字节流
+            logo_data = base64.b64decode(logo_base64)
+            # 使用 BytesIO 将字节流转换为类文件对象
+            logo_stream = BytesIO(logo_data)
+            # 创建 PhotoImage 对象（使用data参数直接传递二进制数据）
+            logo = tk.PhotoImage(data=logo_data)
+            # 设置窗口图标
+            root.iconphoto(True, logo)
+        else:
+            print("警告：未提供图标Base64数据，将使用默认图标。")
+    except Exception as e:
+        print(f"设置窗口图标时出错：{str(e)}")
+        
     app = TextLineInputter(root)
     root.mainloop()
 
